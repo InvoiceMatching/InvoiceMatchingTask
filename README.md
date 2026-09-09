@@ -54,7 +54,7 @@ Every control in the configurator maps 1:1 to a component option (kebab-case as 
        form_fields = ['invoice_log']
    ```
 
-4. Copy the built component bundle (`invoice-matching-task.js`) into `your_app/static/your_app/`, and reference it with `{{ static 'your_app/invoice-matching-task.js' }}` — a relative `src` won't resolve under oTree's `/p/<code>/<app>/<Page>/1` URLs.
+4. Copy the built component bundle (`invoice-matching-task.js`) into `your_app/static/your_app/`, and reference it with `{{ static 'your_app/invoice-matching-task.js' }}`. Alternatively, just reference the file hosted on GitHub `https://cdn.jsdelivr.net/gh/InvoiceMatching/InvoiceMatchingTask/invoice-matching-task.js`
 5. The generated template auto-starts the task, accumulates every event into a hidden `input[name="invoice_log"]`, and clicks oTree's `{{ next_button }}` when `taskFinished` fires — so the normal oTree submit flow carries the log to the server. No extra JS needed on your part.
 6. For the **Live** variant, add a `live_method` on the page to receive each event server-side as it happens (useful for server-driven difficulty or real-time monitoring).
 
@@ -65,7 +65,7 @@ Every control in the configurator maps 1:1 to a component option (kebab-case as 
 No build step required:
 
 ```bash
-git clone <this repo>
+git clone https://github.com/InvoiceMatching/InvoiceMatchingTask.git
 open index.html   # or just double-click it
 ```
 
