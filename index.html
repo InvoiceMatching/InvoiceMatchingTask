@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Invoice Matching Task — Plain HTML Example</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        padding: 2rem;
+        max-width: 720px;
+        margin: 0 auto;
+        background: #f5f5f5;
+      }
+      h1 {
+        font-size: 1.2rem;
+        margin-bottom: 0.25rem;
+      }
+      p.subtitle {
+        font-size: 0.85rem;
+        color: #666;
+        margin: 0 0 1.25rem;
+      }
+      invoice-matching-task {
+        display: block;
+        margin-bottom: 1rem;
+      }
+      #controls {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.25rem;
+      }
+      button {
+        padding: 0.35rem 0.9rem;
+        font-size: 0.875rem;
+        cursor: pointer;
+        border-radius: 4px;
+        border: 1px solid #bbb;
+        background: #fff;
+      }
+      button:hover {
+        background: #f0f0f0;
+      }
+      #log-panel {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #fff;
+        padding: 0.6rem 0.75rem;
+        max-height: 240px;
+        overflow-y: auto;
+      }
+      #log-panel h2 {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #888;
+        margin: 0 0 0.5rem;
+      }
+      .log-entry {
+        font-family: monospace;
+        font-size: 0.78rem;
+        border-bottom: 1px solid #f0f0f0;
+        padding: 0.2rem 0;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .log-empty {
+        font-size: 0.82rem;
+        color: #aaa;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Invoice Matching Task — Plain HTML Example</h1>
+    <p class="subtitle">
+      Open the browser console (F12) or use the log panel below to see events. Copy
+      <code>invoice-matching-task.js</code> next to this file to run it locally.
+    </p>
+
+    <!--
+      The task element. All configuration is done via HTML attributes
+      (see CONFIG_SCHEMA.md for the full list).
+    -->
+    <invoice-matching-task
+      task-duration="60"
+      start-difficulty="1"
+      max-submissions="10"
+      log-level="basic"
+    >
+    </invoice-matching-task>
+
+    <!-- Host-facing controls -->
+    <div id="controls">
+      <button id="btn-start">Start</button>
+      <button id="btn-pause">Pause</button>
+      <button id="btn-resume">Resume</button>
+      <button id="btn-stop">Stop</button>
+      <button id="btn-reset">Reset</button>
+    </div>
+
+    <!-- On-page event log (for demo convenience — not needed in a real integration) -->
+    <div id="log-panel">
+      <h2>Event log</h2>
+      <div id="log-entries"><span class="log-empty">No events yet — click Start.</span></div>
+    </div>
+
+    <!--
+      The built bundle. In a real deployment, copy invoice-matching-task.js
+      (produced by `npm run build:bundle`) to the same folder as this file,
+      or adjust the path below.
+    -->
+    <script src="./invoice-matching-task.js"></script>
+    <script>
+      // In-memory log — in a real study, forward these to your data store:
+      //   - oTree hidden field:  document.querySelector('#invoice_log').value = JSON.stringify(logs)
+      //   - Custom backend:      fetch('/save', { method: 'POST', body: JSON.stringify(logs) })
+      //
+      // Intentionally avoids localStorage / sessionStorage so the example works in
+      // sandboxed embedding environments.
+      const logs = [];
+
+      const task = document.querySelector('invoice-matching-task');
+      const logEntries = document.getElementById('log-entries');
+
+      function appendLogEntry(detail) {
+        if (logEntries.querySelector('.log-empty')) logEntries.innerHTML = '';
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.textContent = JSON.stringify(detail);
+        logEntries.prepend(div);
+      }
+
+      // Attach the listener BEFORE calling start() so taskStarted is never missed.
+      task.addEventListener('invoiceTaskEvent', (event) => {
+        logs.push(event.detail);
+        appendLogEntry(event.detail);
+        console.log('[invoiceTaskEvent]', event.detail);
+      });
+
+      document.getElementById('btn-start').addEventListener('click', () => task.start());
+      document.getElementById('btn-pause').addEventListener('click', () => task.pause());
+      document.getElementById('btn-resume').addEventListener('click', () => task.resume());
+      document.getElementById('btn-stop').addEventListener('click', () => task.stop());
+      document.getElementById('btn-reset').addEventListener('click', () => task.reset());
+    </script>
+  </body>
+</html>
