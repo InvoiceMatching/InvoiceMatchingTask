@@ -841,6 +841,14 @@
             <button class="glabel" aria-expanded="false">Appearance <span class="chevron" aria-hidden="true">▶</span></button>
             <div class="group-body">
             <div class="row">
+              <label>Currency<span class="hint">sign shown before amounts</span></label>
+              <div class="seg" id="seg_currency">
+                <button data-v="EUR" class="on">€ EUR</button>
+                <button data-v="GBP">£ GBP</button>
+                <button data-v="USD">$ USD</button>
+              </div>
+            </div>
+            <div class="row">
               <label>Primary colour</label>
               <input type="color" id="c_color_primary" value="#111111">
             </div>
@@ -1072,6 +1080,7 @@
       completedMsgTouched: false,
       logLevel: 'basic',
       mutedEvents: new Set(),
+      currency: 'EUR',
     };
 
     const DEFAULT_COMPLETED_MSG = 'You have completed all invoice matching tasks.';
@@ -1107,6 +1116,7 @@
       if (cfg.completedMsgTouched) taskEl.completedMessage = cfg.completedMsg;
       taskEl.logLevel = cfg.logLevel;
       taskEl.mutedEvents = Array.from(cfg.mutedEvents);
+      taskEl.currency = cfg.currency;
       applyCssVars();
     }
 
@@ -1148,14 +1158,20 @@
     }
 
     /* ---- Event log ---- */
+    const CURRENCY_SIGNS = { EUR: '€', GBP: '£', USD: '$' };
+    // Amounts in the log carry no currency; follow the log's own taskStarted
+    // effectiveConfig and later configChanged events so a GBP log shows £.
+    let logCurrencySign = '€';
+
     function formatEventSummary(d) {
       const seq = `#${d.sequence}`;
       const rnd = d.roundIndex != null ? `Round ${d.roundIndex + 1}` : null;
       switch (d.eventType) {
         case 'taskStarted':
+          logCurrencySign = CURRENCY_SIGNS[d.effectiveConfig && d.effectiveConfig.currency] || '€';
           return `${seq}  Task started — Lvl ${d.currentDifficulty}`;
         case 'roundStarted':
-          return `${seq}  ${rnd} — target €${d.targetAmount}, ${(d.visibleInvoices || []).length} invoices`;
+          return `${seq}  ${rnd} — target ${logCurrencySign}${d.targetAmount}, ${(d.visibleInvoices || []).length} invoices`;
         case 'roundSubmitted': {
           const verdict = d.isCorrect ? 'Correct' : 'Wrong';
           const secs = typeof d.reactionTimeMs === 'number' ? ` — ${(d.reactionTimeMs / 1000).toFixed(1)} s` : '';
@@ -1164,7 +1180,7 @@
         }
         case 'selectionChanged': {
           const action = d.isChecked ? 'checked' : 'unchecked';
-          return `${seq}  ${d.invoiceId} ${action} (sum €${d.currentSum})`;
+          return `${seq}  ${d.invoiceId} ${action} (sum ${logCurrencySign}${d.currentSum})`;
         }
         case 'difficultyChanged': {
           const reasonMap = { streak_up: 'streak up', streak_down: 'streak down', config_clamp: 'config clamp' };
@@ -1181,7 +1197,10 @@
           return `${seq}  Task finished — ${(d.reason || '').replace(/_/g, ' ')}`;
         case 'taskCompleted':
           return `${seq}  Task completed`;
-        case 'configChanged':
+        case 'configChanged': {
+          const cur = (d.changes || []).find((ch) => ch && ch.option === 'currency');
+          if (cur && CURRENCY_SIGNS[cur.newValue]) logCurrencySign = CURRENCY_SIGNS[cur.newValue];
+        }
           return `${seq}  Config changed — ${(d.changes || []).length} option${(d.changes || []).length !== 1 ? 's' : ''}`;
         case 'error':
           return `${seq}  ⚠ Error: ${d.code ?? 'unknown'} (${d.severity ?? 'unknown'})`;
@@ -1303,6 +1322,7 @@
       attrs.push(['show-feedback', c.fb]);
       attrs.push(['show-timer', c.tl]);
       if (c.lvl) attrs.push(['show-difficulty', true]);
+      if (c.currency && c.currency !== 'EUR') attrs.push(['currency', c.currency]);
       if (c.completedMsgTouched) attrs.push(['completed-message', c.completedMsg]);
       if (c.logLevel !== 'basic') attrs.push(['log-level', c.logLevel]);
       if (c.mutedEvents.size > 0) attrs.push(['muted-events', Array.from(c.mutedEvents).join(',')]);
@@ -1563,6 +1583,17 @@
         cfg.order = b.dataset.v;
         syncDependentStates();
         rebuildPreview();
+        updateSnippet();
+      }),
+    );
+
+    // Currency segmented control (live option)
+    document.querySelectorAll('#seg_currency button').forEach((b) =>
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#seg_currency button').forEach((x) => x.classList.remove('on'));
+        b.classList.add('on');
+        cfg.currency = b.dataset.v;
+        applyLiveOptions();
         updateSnippet();
       }),
     );
@@ -2104,7 +2135,7 @@
     updateSnippet();
 
     /* ---- Dev guard: full config surface ----
-       Builds a snippet from a maxed-out config and asserts every one of the 21
+       Builds a snippet from a maxed-out config and asserts every one of the 22
        CONFIG_SCHEMA.md §2 options is reachable as an emitted attribute. Errors
        loudly (only on failure) if a future edit drops a control, so the "all
        options" claim cannot silently regress. */
@@ -2114,7 +2145,7 @@
         'start-difficulty', 'min-difficulty', 'max-difficulty', 'adaptive-difficulty',
         'correct-streak-for-level-up', 'wrong-streak-for-level-down', 'number-of-options',
         'invoice-order', 'random-seed', 'max-submissions', 'max-correct-submissions',
-        'show-timer', 'show-feedback', 'show-difficulty', 'completed-message',
+        'show-timer', 'show-feedback', 'show-difficulty', 'currency', 'completed-message',
         'log-level', 'muted-events',
       ];
       const full = {
@@ -2123,6 +2154,7 @@
         roundTimer: true, roundDuration: 30, max: 20, maxCorrect: 10, perround: 8,
         order: 'fixed', sessionId: 's1', randomSeed: 'seed', completedMsg: 'done',
         completedMsgTouched: true, logLevel: 'detailed', mutedEvents: new Set(['roundStarted']),
+        currency: 'USD',
       };
       const { attrHtml } = buildSnippetParts(full);
       const emitted = (attrHtml.match(/class="a">([a-z-]+)</g) || []).map((s) =>
