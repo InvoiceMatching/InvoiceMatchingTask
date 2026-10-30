@@ -1,40 +1,127 @@
-# Invoice Matching Configurator
+# Invoice Matching Task
+An open-source invoice-matching task for behavioural and Information Systems research, together with a configurator for setting it up without writing code.
 
-A single-page tool for configuring the Invoice Matching Task web component, previewing it live, and exporting ready-to-use code — no build step, no install.
-
-**Live:** [https://<org>.github.io/<repo>/](https://invoicematching.github.io/InvoiceMatchingTask/)
+**Configurator (live):** [https://<org>.github.io/<repo>/](https://invoicematching.github.io/InvoiceMatchingTask/)
 
 ---
 
-## What it does
+## Contents
 
-- **Live preview** — the real component, not a mock-up. Change a setting, watch the task update immediately, including the live event stream.
-- **Generated code** — three copy-paste outputs for your chosen settings:
-  - a bare `<invoice-matching-task>` tag with your options as attributes
-  - a complete, runnable `index.html` (plain HTML host)
-  - an **oTree page template**, in Basic and Live variants
-- **Log viewer** — paste or upload an exported event-log JSON array and inspect it as a table, so you can sanity-check a pilot run without writing analysis code.
+| File | What it is |
+|---|---|
+| `index.html` | The configurator: set up the task, preview it live, and export ready-to-use code. Runs entirely in the browser. |
+| `invoice-matching-task.js` | The task itself: a single-file web component, `<invoice-matching-task>`, that works on any web page or experiment platform (e.g. oTree). No framework needed on the host page. |
+| `Configurator_720.mp4` | A short video walkthrough. |
+| `LICENSE` | MIT license. |
 
-The configurator itself is static and client-side only. It doesn't store, transmit, or persist anything — it just builds config and hands you code.
+---
+
+## How the task works
+
+Each round shows a **payment amount** and a list of **invoices** (8 by default). The participant ticks the invoices whose amounts add up exactly to the payment and clicks **Post**. Exactly one combination is correct. After an optional *Correct* / *Incorrect* message (600 ms), the next round starts. The task ends after a time limit, a number of submissions or correct submissions, or when the host stops it. An optional per-round time limit auto-submits the current selection.
+
+---
+
+### Difficulty levels
+
+Six levels fix how many single-digit (1–9) and two-digit (10–99) invoices the correct answer contains, and how many **carries** its addition requires:
+
+| Level | Single-digit | Two-digit | Carries | Example |
+|---|---|---|---|---|
+| 1 | 1 | 1 | 0 | 62 + 4 = 66 |
+| 2 | 0 | 2 | 1 | 89 + 70 = 159 |
+| 3 | 2 | 1 | 1 | 72 + 4 + 8 = 84 |
+| 4 | 1 | 2 | 2 | 99 + 15 + 4 = 118 |
+| 5 | 0 | 3 | 3 | 57 + 18 + 76 = 151 |
+| 6 | 2 | 2 | 3 | 34 + 89 + 1 + 9 = 133 |
+
+Carries are counted as in written column addition: a column whose digits (plus any incoming carry) reach 10 carries into the next one. `24 + 53` has no carry, `37 + 56` has one, `68 + 57` has two. The count is the total carried, so `9 + 9 + 9 = 27` counts as 2. Fixing the carry count per level keeps rounds within a level comparable.
+
+By default the task starts at Level 1 and adapts within Levels 1–3; Levels 4–6 are available by raising `maxDifficulty`.
+
+### Adaptive difficulty
+
+By default the level rises by one after 4 consecutive correct answers and falls by one after 4 consecutive wrong answers (both thresholds configurable). Alternatively, adaptation can be switched off and the level set from outside, e.g. by an oTree server, with `setDifficulty(level)`. Every level change is logged together with its cause.
+
+---
+
+## Quick start
+
+```html
+<!doctype html>
+<html>
+  <body>
+    <script src="https://cdn.jsdelivr.net/gh/InvoiceMatching/InvoiceMatchingTask/invoice-matching-task.js"></script>
+
+    <invoice-matching-task
+      task-duration="300"
+      start-difficulty="1"
+      max-submissions="20"
+    ></invoice-matching-task>
+
+    <script>
+      const task = document.querySelector('invoice-matching-task');
+      const log = [];
+
+      // Listen for events before starting.
+      task.addEventListener('invoiceTaskEvent', (event) => log.push(event.detail));
+
+      customElements.whenDefined('invoice-matching-task').then(() => {
+        requestAnimationFrame(() => task.start());
+      });
+    </script>
+  </body>
+</html>
+```
+
+You can also download `invoice-matching-task.js` and load it from your own server. The configurator generates this page, with your settings filled in, under **Generated code → HTML**.
+
+---
+
+## The Configurator
+Open [the live configurator](https://invoicematching.github.io/InvoiceMatchingTask/) or download `index.html` and open it directly in a browser. No installation or server is needed.
+
+- **Live preview** — the real task, not a mock-up. Every change is visible immediately, including the event stream.
+- **All settings** — grouped as Difficulty, Feedback, Timing, Task volume, Session, Logging and Appearance (currency, colours, font).
+- **Generated code** for your settings:
+  - a bare `<invoice-matching-task>` tag with your options as attributes,
+  - a complete, runnable `index.html`,
+  - an **oTree page template**, in a **Basic** variant (the log is submitted with the page) and a **Live** variant (every event is streamed to the server).
+- **Log viewer** — paste or upload an exported event log and read it as a table, to check a pilot run without writing analysis code.
+
+The configurator only runs in your browser. It does not store, transmit or persist anything.
 
 ---
 
 ## Configuration options
 
-Every control in the configurator maps 1:1 to a component option (kebab-case as an HTML attribute, camelCase as a JS property). The most common ones:
+Each option can be set as an HTML attribute (kebab-case, e.g. `task-duration`) or as a JavaScript property (camelCase, e.g. `taskDuration`). **Live** options can be changed while the task is running; the others are read when the task starts.
 
-| Option | Type | Default | Notes |
-|---|---|---|---|
-| `taskDuration` | int (sec) | `300` | `0`/`null` = no time limit |
-| `roundDuration` | int (sec) \| null | `null` | Per-round limit; auto-submits on expiry |
-| `startDifficulty` / `minDifficulty` / `maxDifficulty` | int 1–6 | `1` / `1` / `3` | Levels 4–6 are opt-in |
-| `adaptiveDifficulty` | bool | `true` | `false` lets you drive difficulty yourself via `setDifficulty()` |
-| `correctStreakForLevelUp` / `wrongStreakForLevelDown` | int ≥ 1 | `4` / `4` | Consecutive right/wrong answers before the level moves |
-| `numberOfOptions` | int 3–12 | `8` | Invoices shown per round |
-| `invoiceOrder` / `randomSeed` | enum / string | `"random"` / `null` | Set `"fixed"` + a seed for reproducible rounds |
-| `maxSubmissions` / `maxCorrectSubmissions` | int \| null | `null` / `null` | Caps that end the task early |
-| `showTimer` / `showFeedback` / `showDifficulty` | bool | `true` / `true` / `false` | Participant-facing UI toggles |
-| `logLevel` / `mutedEvents` | enum / string[] | `"basic"` / `[]` | Controls which events are emitted |
+| Option | Type | Default | Live | Notes |
+|---|---|---|---|---|
+| `taskDuration` | seconds | `300` | | `0` = no time limit |
+| `roundDuration` | seconds \| null | `null` | | Per-round limit; auto-submits when it runs out |
+| `maxSubmissions` | integer \| null | `null` | ✓ | End after this many submissions |
+| `maxCorrectSubmissions` | integer \| null | `null` | ✓ | End after this many correct submissions |
+| `startDifficulty` | 1–6 | `1` | | Starting level |
+| `minDifficulty` / `maxDifficulty` | 1–6 | `1` / `3` | | Range the level can move in |
+| `adaptiveDifficulty` | boolean | `true` | ✓ | `false`: level stays fixed or is set via `setDifficulty()` |
+| `correctStreakForLevelUp` | integer ≥ 1 | `4` | ✓ | Consecutive correct answers to go up a level |
+| `wrongStreakForLevelDown` | integer ≥ 1 | `4` | ✓ | Consecutive wrong answers to go down a level |
+| `numberOfOptions` | 3–12 | `8` | | Invoices shown per round |
+| `invoiceOrder` | `random` \| `fixed` | `random` | | `fixed` makes rounds reproducible from `randomSeed` |
+| `randomSeed` | string \| null | `null` | | Seed for `fixed` mode |
+| `showTimer` | boolean | `true` | ✓ | Show the remaining time |
+| `showFeedback` | boolean | `true` | ✓ | Show *Correct* / *Incorrect* after each submission |
+| `showDifficulty` | boolean | `false` | ✓ | Show the current level to the participant |
+| `currency` | `EUR` \| `GBP` \| `USD` | `EUR` | ✓ | Display only: `€ 57`, `£57`, `$57` |
+| `completedMessage` | string | *"You have completed all invoice matching tasks."* | ✓ | Shown when the task ends |
+| `sessionId` | string \| null | `null` | ✓ | Copied into every event, e.g. a participant ID |
+| `logLevel` | `basic` \| `detailed` \| `debug` | `basic` | ✓ | `detailed` adds every click and pause |
+| `mutedEvents` | list of event types | `[]` | ✓ | Event types to suppress |
+| `autoStart` | boolean | `false` | | Start as soon as the element is ready |
+
+Invalid values never break the task: the nearest valid value or the default is used, and a warning event records what was received and what was used.
 
 ---
 
@@ -62,11 +149,16 @@ Every control in the configurator maps 1:1 to a component option (kebab-case as 
 
 ## Running locally
 
-No build step required:
-
 ```bash
 git clone https://github.com/InvoiceMatching/InvoiceMatchingTask.git
-open index.html   # or just double-click it
+cd InvoiceMatchingTask
+open index.html   # or double-click it
 ```
 
+`index.html` loads `invoice-matching-task.js` from the same folder, so keep the two files together.
+
 ---
+
+## License
+
+Released under the [MIT License](LICENSE).
